@@ -238,6 +238,13 @@ public:
     alpCS.glo2loc(vtx.x,vtx.y,vlX,vlY);
     return TrackPoint(pnt.x - vlX, pnt.y - vlY, pnt.z - vtx.z);
   }
+  
+  TrackPoint calcResid(const AliExternalTrackParam& trc, const TrackAuxPar& alpCS, const TrackPoint& vtx) const
+  {
+    double vlX,vlY; // Vertex XY in track local frame
+    alpCS.glo2loc(vtx.x,vtx.y,vlX,vlY);
+    return TrackPoint(trc.GetX() - vlX, trc.GetY() - vlY, trc.GetZ() - vtx.z);
+  }
 
   void chi2Deriv(const TrackPoint& tPnt0, const TrackPointDeriv2& tDer0, const TrackAuxPar& trc0Aux, const TrackPointCovI& trcEI0, const TrackCoefVtx& trCFVT0,
 		 const TrackPoint& tPnt1, const TrackPointDeriv2& tDer1, const TrackAuxPar& trc1Aux, const TrackPointCovI& trcEI1, const TrackCoefVtx& trCFVT1,
@@ -264,7 +271,7 @@ public:
   int mCrossIDAlt;   // XY crossing alternative to the one being tested. Abandon fit if it converges to it
   
   int mNCandidates; // number of consdered candidates
-  AliExternalTrackParam mCandTr0[2], mCandTr1[2]; // Tracks at PCA: max 2 candidates possible
+  AliExternalTrackParam mCandTr0[2], mCandTr1[2]; // Tracks at PCA, max 2 candidates. Note: Errors are at seed XY point
   TrackPoint mPCA[2]; // PCA for 2 possible cases
   double mChi2[2]; // Chi2 at PCA candidate
   TrackPointCovI mTrcEI0[2], mTrcEI1[2]; // errors for each track candidate

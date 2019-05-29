@@ -181,8 +181,8 @@ bool DCAFitter::processCandidateChi2(const TrackAuxPar& trc0Aux, const TrackAuxP
     double detDer2I = 1./detDer2;
     double dX0 = -(deriv.dChidx0 * deriv.dChidx1dx1 - deriv.dChidx1 * deriv.dChidx0dx1)*detDer2I;
     double dX1 = -(deriv.dChidx1 * deriv.dChidx0dx0 - deriv.dChidx0 * deriv.dChidx0dx1)*detDer2I;
-    trc0.PropagateTo(trc0.GetX() + dX0, mBz);
-    trc1.PropagateTo(trc1.GetX() + dX1, mBz);
+    trc0.PropagateParamOnlyTo(trc0.GetX() + dX0, mBz);
+    trc1.PropagateParamOnlyTo(trc1.GetX() + dX1, mBz);
     
     double x,y,z;
     calcPCA(tPnt0,trCFVT0, tPnt1,trCFVT1, x,y,z);
@@ -238,8 +238,8 @@ bool DCAFitter::processCandidateDCA(const TrackAuxPar& trc0Aux, const TrackAuxPa
     double detDer2I = 1./detDer2;    
     double dX0 = -(deriv.dChidx0 * deriv.dChidx1dx1 - deriv.dChidx1 * deriv.dChidx0dx1)*detDer2I;
     double dX1 = -(deriv.dChidx1 * deriv.dChidx0dx0 - deriv.dChidx0 * deriv.dChidx0dx1)*detDer2I;
-    trc0.PropagateTo(trc0.GetX() + dX0, mBz);
-    trc1.PropagateTo(trc1.GetX() + dX1, mBz);
+    trc0.PropagateParamOnlyTo(trc0.GetX() + dX0, mBz);
+    trc1.PropagateParamOnlyTo(trc1.GetX() + dX1, mBz);
 
     double x,y,z;
     tPnt0.set(trc0); // tracks local positions  
@@ -252,9 +252,7 @@ bool DCAFitter::processCandidateDCA(const TrackAuxPar& trc0Aux, const TrackAuxPa
       return false;
     }
 
-    chi2 = calcDCA(x,y,z,tPnt0,trc0Aux, tPnt1,trc1Aux);
-    // TODO: consider using direct method which calculates PCA internally
-    // chi2 = calcDCA(tPnt0, trc0Aux, tPnt1, trc1Aux);
+    chi2 = calcDCA(tPnt0, trc0Aux, tPnt1, trc1Aux);
 
     if ( (TMath::Abs(dX0)<mMinParamChange && TMath::Abs(dX1)<mMinParamChange) ||
 	 (iter && chi2/chi2Prev>mMinRelChi2Change) ) {
@@ -268,8 +266,7 @@ bool DCAFitter::processCandidateDCA(const TrackAuxPar& trc0Aux, const TrackAuxPa
     tPnt0.set(trc0); // tracks local positions  
     tPnt1.set(trc1); //
     calcPCA(tPnt0, trc0Aux, tPnt1, trc1Aux, pca.x, pca.y, pca.z );
-    //    mChi2[mNCandidates] = calcDCA(tPnt0, trc0Aux, tPnt1, trc1Aux); // TODO: consider using this direct method
-    mChi2[mNCandidates] = calcDCA(pca.x, pca.y, pca.z, tPnt0,trc0Aux, tPnt1,trc1Aux);
+    mChi2[mNCandidates] = calcDCA(tPnt0, trc0Aux, tPnt1, trc1Aux);
     return true;
   }
   return false;
@@ -550,6 +547,7 @@ double DCAFitter::calcDCA(double Vx, double Vy, double Vz,
 			  const TrackPoint& tPnt0, const TrackAuxPar& trc0Aux, const TrackPoint& tPnt1, const TrackAuxPar& trc1Aux) const
 {
   // calculate distance (non-weighted) of closest approach of 2 points in their local frame
+  // (long way, see alternative getDCA w/o explicit vertex calculation)
   double chi2 = 0;
   double xl,yl,dy,dz;
   trc0Aux.glo2loc(Vx,Vy,xl,yl);
@@ -571,7 +569,8 @@ double DCAFitter::calcDCA( const TrackPoint& tPnt0, const TrackAuxPar& trc0Aux, 
   double cosDA = trc0Aux.c*trc1Aux.c + trc0Aux.s*trc1Aux.s; // cos(A0-A1)
   double sinDA = trc0Aux.s*trc1Aux.c - trc0Aux.c*trc1Aux.s; // sin(A0-A1)
   double dx = tPnt0.x - tPnt1.x, dy = tPnt0.y - tPnt1.y, dz = tPnt0.z - tPnt1.z; 
-  chi2 = dx*dx + dy*dy + dz*dz + 2.*( (1.-cosDA)*(tPnt0.x*tPnt1.x-tPnt0.y*tPnt1.y) + sinDA*(tPnt0.y*tPnt1.x-tPnt1.y*tPnt0.x) );
+  chi2 = 0.5*(dx*dx + dy*dy + dz*dz) + (1.-cosDA)*(tPnt0.x*tPnt1.x + tPnt0.y*tPnt1.y) + sinDA*(tPnt0.y*tPnt1.x-tPnt1.y*tPnt0.x);
+  
   return chi2;
 }
 

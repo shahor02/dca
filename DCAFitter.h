@@ -1,128 +1,146 @@
-#ifndef _ALI_DCA_FITTER_
-#define _ALI_DCA_FITTER_
+// Copyright CERN and copyright holders of ALICE O2. This software is
+// distributed under the terms of the GNU General Public License v3 (GPL
+// Version 3), copied verbatim in the file "COPYING".
+//
+// See http://alice-o2.web.cern.ch/license for full licensing information.
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
+/// \file DCAFitter.h
+/// \brief Defintions for DCA fitter class
+/// \author ruben.shahoyan@cern.ch
+
+#ifndef _ALICEO2_DCA_FITTER_
+#define _ALICEO2_DCA_FITTER_
 
 #include <TMath.h>
 #include <Rtypes.h>
+
+#define _ADAPT_FOR_ALIROOT_  // to make it compatible with AliRoot AliExternalTrackParam
+
+#ifdef _ADAPT_FOR_ALIROOT_
 #include "AliExternalTrackParam.h"
+typedef AliExternalTrackParam Track;
+typedef float ftype_t;  // type precision for standard calculation (prefer float)
+typedef double dtype_t; // type precision for calculation with risk of round-off errors
+#define CONSTRDEF \
+  {               \
+  }
+#else
+#define CONSTRDEF = default
 
-class DCAFitter {
+#include "ReconstructionDataFormats/Track.h"
 
-public:
-  
-  // >>> Auxiliary structs used by DCA finder
-  
+namespace o2
+{
+namespace base
+{
+#endif
+
+class DCAFitter
+{
+ public:
+#ifdef _ADAPT_FOR_ALIROOT_
+#define getSigmaY2 GetSigmaY2
+#define getSigmaZ2 GetSigmaZ2
+#define getSigmaZY GetSigmaZY
+#define getAlpha GetAlpha
+#define getX GetX
+#define getY GetY
+#define getZ GetZ
+#define getSnp GetSnp
+#define getTgl GetTgl
+#define getParam GetParameter
+#define getCurvature GetC
+#define propagateTo PropagateTo
+#define propagateParamTo PropagateParamOnlyTo
+  //
+#else
+  using Track = o2::track::TrackParCov;
+  using ftype_t = float;  // type precision for standard calculation (prefer float)
+  using dtype_t = double; // type precision for calculation with risk of round-off errors
+#endif
+
+  // ---> Auxiliary structs used by DCA finder
+
   //----------------------------------------------------
   ///< Inverse cov matrix of the point defined by the track
-  struct TrackPointCovI {
-    double sxx, syy, syz, szz;
-    
-    TrackPointCovI(const AliExternalTrackParam& trc) { set(trc); }
-    TrackPointCovI() {}
-    void set(const AliExternalTrackParam& trc)
+  struct TrackCovI {
+    ftype_t sxx, syy, syz, szz;
+
+    TrackCovI(const Track& trc) { set(trc); }
+    TrackCovI() CONSTRDEF;
+    void set(const Track& trc)
     {
       // we assign Y error to X for DCA calculation of 2 points
       // (otherwise for quazi-collinear tracks the X will not be constrained)
-      double cyy = trc.GetSigmaY2(), czz = trc.GetSigmaZ2(), cyz = trc.GetSigmaZY(), cxx = cyy;
-      double detYZ = cyy*czz - cyz*cyz;
-      if (detYZ>0.) {
-	sxx = 1./cxx;
-	syy = czz/detYZ;
-	syz = -cyz/detYZ;
-	szz = cyy/detYZ;
+      ftype_t cyy = trc.getSigmaY2(), czz = trc.getSigmaZ2(), cyz = trc.getSigmaZY(), cxx = cyy;
+      ftype_t detYZ = cyy * czz - cyz * cyz;
+      if (detYZ > 0.) {
+        sxx = 1. / cxx;
+        syy = czz / detYZ;
+        syz = -cyz / detYZ;
+        szz = cyy / detYZ;
+      } else {
+        syy = 0.0; // failure
       }
-      else {
-	syy = 0.0; // failure
-      }
     }
-    
-    ClassDefNV(TrackPointCovI,1);
   };
-  
+
   //----------------------------------------------------
-  ///< particular point on track trajectory (in track proper alpha-frame)
-  struct TrackPoint {
-    double x, y, z;
-    TrackPoint(AliExternalTrackParam& trc) { set(trc); }  
-    TrackPoint(double px=0, double py=0, double pz=0) : x(px), y(py), z(pz) {}
-    void set(const AliExternalTrackParam& trc) {
-      x = trc.GetX();
-      y = trc.GetY();
-      z = trc.GetZ();
+  ///< Derivative (up to 2) of the TrackParam position over its running param X
+  struct TrackDeriv2 {
+    ftype_t dydx, dzdx, d2ydx2, d2zdx2;
+
+    TrackDeriv2() CONSTRDEF;
+    TrackDeriv2(const Track& trc, ftype_t bz) { set(trc, bz); }
+    void set(const Track& trc, ftype_t bz)
+    {
+      ftype_t snp = trc.getSnp(), csp = TMath::Sqrt((1. - snp) * (1. + snp)), cspI = 1. / csp, crv2c = trc.getCurvature(bz) * cspI;
+      dydx = snp * cspI;            // = snp/csp
+      dzdx = trc.getTgl() * cspI;   // = tgl/csp
+      d2ydx2 = crv2c * cspI * cspI; // = crv/csp^3
+      d2zdx2 = crv2c * dzdx * dydx; // = crv*tgl*snp/csp^3
     }
-    ClassDefNV(TrackPoint,1);
   };
-  
-  //----------------------------------------------------
-  ///< Derivative (up to 2) of the TrackParam position over its running param X 
-  struct TrackPointDeriv2 {
-    double dydx, dzdx, d2ydx2, d2zdx2;
-    
-    TrackPointDeriv2() {}
-    TrackPointDeriv2(const AliExternalTrackParam& trc, double bz) { set(trc,bz); }
-    void set(const AliExternalTrackParam& trc, double bz) {
-      double snp = trc.GetSnp(), csp = TMath::Sqrt((1.-snp)*(1.+snp)), cspI = 1./csp, crv2c = trc.GetC(bz)*cspI;
-      dydx = snp*cspI;           // = snp/csp
-      dzdx = trc.GetTgl()*cspI; // = tgl/csp
-      d2ydx2 = crv2c*cspI*cspI;  // = crv/csp^3
-      d2zdx2 = crv2c*dzdx*dydx;  // = crv*tgl*snp/csp^3
-    }
-    
-    ClassDefNV(TrackPointDeriv2,1);
-  };
-  
+
   //----------------------------------------------------
   //< precalculated track radius, center, alpha sin,cos and their combinations
-  struct TrackAuxPar {
-    double c,s; // cos ans sin of track alpha
-    double cc, cs, ss; // products
-    double r, xCen, yCen; // helix radius and center in lab
-    
-    TrackAuxPar() {}
-    TrackAuxPar(const AliExternalTrackParam& trc, double bz) { set(trc,bz); }
+  struct TrcAuxPar {
+    ftype_t c, s;          // cos ans sin of track alpha
+    ftype_t cc, cs, ss;    // products
+    ftype_t r, xCen, yCen; // helix radius and center in lab
 
-    void set(const AliExternalTrackParam& trc, double bz) {
-      c = TMath::Cos(trc.GetAlpha());
-      s = TMath::Sin(trc.GetAlpha());
+    TrcAuxPar() CONSTRDEF;
+    TrcAuxPar(const Track& trc, ftype_t bz) { set(trc, bz); }
+
+    void set(const Track& trc, ftype_t bz)
+    {
+      c = TMath::Cos(trc.getAlpha());
+      s = TMath::Sin(trc.getAlpha());
       setRCen(trc, bz);
-      cc = c*c;
-      ss = s*s;
-      cs = c*s;
+      cc = c * c;
+      ss = s * s;
+      cs = c * s;
     }
-    
-    void setRCen(const AliExternalTrackParam& tr, double bz);
-    
-    void glo2loc(double vX,double vY, double& vXL, double& vYL) const {
+
+    void setRCen(const Track& tr, ftype_t bz);
+
+    void glo2loc(ftype_t vX, ftype_t vY, ftype_t& vXL, ftype_t& vYL) const
+    {
       // rotate XY in global frame to the frame of track with angle A
-      vXL = vX*c + vY*s;
-      vYL = -vX*s + vY*c;
+      vXL = vX * c + vY * s;
+      vYL = -vX * s + vY * c;
     }
-    
-    void loc2glo(double vXL,double vYL, double& vX, double& vY) const {
+
+    void loc2glo(ftype_t vXL, ftype_t vYL, ftype_t& vX, ftype_t& vY) const
+    {
       // rotate XY in local alpha frame to global frame
-      vX = vXL*c - vYL*s;
-      vY = vXL*s + vYL*c;
+      vX = vXL * c - vYL * s;
+      vY = vXL * s + vYL * c;
     }
-
-    ClassDefNV(TrackAuxPar,1);
-  };
-  
-  //----------------------------------------------------
-  //< crossing coordinates of 2 circles
-  struct CrossInfo {
-    double xDCA[2];
-    double yDCA[2];
-    int nDCA;
-    
-    CrossInfo() {}
-    CrossInfo(const TrackAuxPar& trc0, const TrackAuxPar& trc1) { set(trc0, trc1); }
-    void set(const TrackAuxPar& trc0, const TrackAuxPar& trc1);
-    
-    ClassDefNV(CrossInfo,1);
-  };
-
-  struct Derivatives {
-    double dChidx0, dChidx1; // 1st derivatives of chi2 vs tracks local parameters X
-    double dChidx0dx0, dChidx1dx1, dChidx0dx1; // 2nd derivatives of chi2 vs tracks local parameters X
   };
 
   //----------------------------------------------------
@@ -132,33 +150,74 @@ public:
   //< Vz = mZX0*x0+mZY0*y0+mZZ0*z0 + mZX1*x1+mZY1*y1+mZZ1*z1
   //< where {x0,y0,z0} and {x1,y1,z1} are track positions in their local frames
   struct TrackCoefVtx {
-    double mXX,mXY,mXZ,mYX,mYY,mYZ,mZX,mZY,mZZ;
-    TrackCoefVtx() {}
-    ClassDefNV(TrackCoefVtx,1);
+    ftype_t mXX, mXY, mXZ, mYX, mYY, mYZ, mZX, mZY, mZZ;
+    TrackCoefVtx() CONSTRDEF;
   };
-  
-  // <<< Auxiliary structs used by DCA finder
+
+  //----------------------------------------------------
+  ///< particular point on track trajectory (in track proper alpha-frame)
+  struct Triplet {
+    ftype_t x, y, z;
+    Triplet(Track& trc) { set(trc); }
+    Triplet(ftype_t px = 0, ftype_t py = 0, ftype_t pz = 0) : x(px), y(py), z(pz) {}
+    void set(const Track& trc)
+    {
+      x = trc.getX();
+      y = trc.getY();
+      z = trc.getZ();
+    }
+  };
+
+  //----------------------------------------------------
+  //< crossing coordinates of 2 circles
+  struct CrossInfo {
+    ftype_t xDCA[2];
+    ftype_t yDCA[2];
+    int nDCA;
+
+    CrossInfo() CONSTRDEF;
+    CrossInfo(const TrcAuxPar& trc0, const TrcAuxPar& trc1) { set(trc0, trc1); }
+    void set(const TrcAuxPar& trc0, const TrcAuxPar& trc1);
+  };
+
+  struct Derivatives {
+    ftype_t dChidx0, dChidx1;                   // 1st derivatives of chi2 vs tracks local parameters X
+    ftype_t dChidx0dx0, dChidx1dx1, dChidx0dx1; // 2nd derivatives of chi2 vs tracks local parameters X
+  };
+
+  // <--- Auxiliary structs used by DCA finder
 
   //===============================================================================
-  
-  DCAFitter() {};
 
-  double getMaxIter() const { return mMaxIter; }
-  double getMaxR()    const { return TMath::Sqrt(mMaxR2); }
-  double getMaxChi2() const { return mMaxChi2;}
-  double getMinParamChange() const { return mMinParamChange; }
-  double getBz() const { return mBz; }
-  bool   getUseAbsDCA() const {return mUseAbsDCA;}
-  
-  void setMaxIter(int n=20) { mMaxIter = n>2 ? n : 2; }
-  void setMaxR(double r=200.) { mMaxR2 = r*r; }
-  void setMaxChi2(double chi2=999.) { mMaxChi2 = chi2; }
-  void setBz(double bz) { mBz = bz; }
-  void setMinParamChange(double x=1e-3) { mMinParamChange = x>1e-4 ? x : 1.e-4; }
-  void setMinRelChi2Change(double r=0.9) { mMinRelChi2Change = r>0.1 ? r : 999.;}
-  void setUseAbsDCA(bool v) {mUseAbsDCA = v;}
-    
-  DCAFitter(double bz, double minRelChiChange=0.9, double minXChange=1e-3, double maxChi=999, int n=20, double maxR = 200.) {
+  DCAFitter() CONSTRDEF;
+
+  int getMaxIter() const
+  {
+    return mMaxIter;
+  }
+  ftype_t getMaxR() const { return TMath::Sqrt(mMaxR2); }
+  ftype_t getMaxChi2() const { return mMaxChi2; }
+  ftype_t getMinParamChange() const { return mMinParamChange; }
+  ftype_t getBz() const { return mBz; }
+  bool getUseAbsDCA() const { return mUseAbsDCA; }
+
+  void setMaxIter(int n = 20) { mMaxIter = n > 2 ? n : 2; }
+  void setMaxR(ftype_t r = 200.) { mMaxR2 = r * r; }
+  void setMaxChi2(ftype_t chi2 = 999.) { mMaxChi2 = chi2; }
+  void setBz(ftype_t bz) { mBz = bz; }
+  void setMinParamChange(ftype_t x = 1e-3) { mMinParamChange = x > 1e-4 ? x : 1.e-4; }
+  void setMinRelChi2Change(ftype_t r = 0.9) { mMinRelChi2Change = r > 0.1 ? r : 999.; }
+  void setUseAbsDCA(bool v) { mUseAbsDCA = v; }
+
+  void clear()
+  {
+    mNCandidates = 0;
+    mCrossIDCur = 0;
+    mCrossIDAlt = -1;
+  }
+
+  DCAFitter(ftype_t bz, ftype_t minRelChiChange = 0.9, ftype_t minXChange = 1e-3, ftype_t maxChi = 999, int n = 20, ftype_t maxR = 200.)
+  {
     setMaxIter(n);
     setMaxR(maxR);
     setMaxChi2(maxChi);
@@ -172,113 +231,107 @@ public:
   int getNCandidates() const { return mNCandidates; }
 
   ///< return PCA candidate (no check for its validity)
-  TrackPoint& getPCACandidate(int cand) { return mPCA[cand]; }
+  const Triplet& getPCACandidate(int cand) const { return mPCA[cand]; }
 
   ///< return Chi2 at PCA candidate (no check for its validity)
-  double getChi2AtPCACandidate(int cand) { return mChi2[cand]; }
+  ftype_t getChi2AtPCACandidate(int cand) const { return mChi2[cand]; }
 
   ///< 1st track params propagated to V0 candidate (no check for the candidate validity)
-  AliExternalTrackParam& getTrack0(int cand) { return mCandTr0[cand]; }
+  const Track& getTrack0(int cand) const { return mCandTr0[cand]; }
 
   ///< 2nd track params propagated to V0 candidate (no check for the candidate validity)
-  AliExternalTrackParam& getTrack1(int cand) { return mCandTr1[cand]; }  
+  const Track& getTrack1(int cand) const { return mCandTr1[cand]; }
 
-  
   ///< calculate parameters tracks at PCA
-  int process(const AliExternalTrackParam& trc0, const AliExternalTrackParam& trc1);
+  int process(const Track& trc0, const Track& trc1)
+  {
+    // find dca of 2 tracks
+    TrcAuxPar trc0Aux(trc0, mBz), trc1Aux(trc1, mBz);
+    return process(trc0, trc0Aux, trc1, trc1Aux);
+  }
 
-  ///< calculate parameters tracks at PCA, using precalculated aux info // = TrackAuxPar(track) //
-  int process(const AliExternalTrackParam& trc0, const TrackAuxPar& trc0Aux,
-	      const AliExternalTrackParam& trc1, const TrackAuxPar& trc1Aux);
+  ///< calculate parameters tracks at PCA, using precalculated aux info // = TrcAuxPar(track) //
+  int process(const Track& trc0, const TrcAuxPar& trc0Aux,
+              const Track& trc1, const TrcAuxPar& trc1Aux);
 
-  ///< minimizer for abs distance definition of DCA
-  bool processCandidateDCA(const TrackAuxPar& trc0Aux, const TrackAuxPar& trc1Aux);
+  ///< minimizer for abs distance definition of DCA, starting with cached tracks
+  bool processCandidateDCA(const TrcAuxPar& trc0Aux, const TrcAuxPar& trc1Aux);
 
-  ///< minimizer for weighted distance definition of DCA (chi2)
-  bool processCandidateChi2(const TrackAuxPar& trc0Aux, const TrackAuxPar& trc1Aux);
+  ///< minimizer for weighted distance definition of DCA (chi2), starting with cached tracks
+  bool processCandidateChi2(const TrcAuxPar& trc0Aux, const TrcAuxPar& trc1Aux);
 
+  ///< minimize w/o preliminary propagation to XY crossing points
+  int processAsIs(const Track& trc0, const Track& trc1);
 
  protected:
-  void calcPCACoefs(const TrackAuxPar& trc0Aux, const TrackPointCovI& trcEI0,
-		    const TrackAuxPar& trc1Aux, const TrackPointCovI& trcEI1,
-		    TrackCoefVtx& trCFVT0, TrackCoefVtx& trCFVT1) const;
+  void calcPCACoefs(const TrcAuxPar& trc0Aux, const TrackCovI& trcEI0,
+                    const TrcAuxPar& trc1Aux, const TrackCovI& trcEI1,
+                    TrackCoefVtx& trCFVT0, TrackCoefVtx& trCFVT1) const;
 
   ///< PCA with weighted DCA definition
-  void calcPCA(const AliExternalTrackParam& trc0, const TrackCoefVtx& trCFVT0,
-	       const AliExternalTrackParam& trc1, const TrackCoefVtx& trCFVT1,
-	       double &Vx, double &Vy, double &Vz) const;
-
-  ///< PCA with weighted DCA definition
-  void calcPCA(const TrackPoint& tPnt0, const TrackCoefVtx& trCFVT0,
-	       const TrackPoint& tPnt1, const TrackCoefVtx& trCFVT1,
-	       double &Vx, double &Vy, double &Vz) const;
+  void calcPCA(const Track& trc0, const TrackCoefVtx& trCFVT0,
+               const Track& trc1, const TrackCoefVtx& trCFVT1,
+               Triplet& v) const;
 
   ///< PCA with abs DCA definition
-  void calcPCA(const AliExternalTrackParam& trc0, const TrackAuxPar& trc0Aux, 
-	       const AliExternalTrackParam& trc1, const TrackAuxPar& trc1Aux, 
-	       double &Vx, double &Vy, double &Vz) const;
-  
-  ///< PCA with abs DCA definition
-  void calcPCA(const TrackPoint& tPnt0, const TrackAuxPar& trc0Aux, 
-	       const TrackPoint& tPnt1, const TrackAuxPar& trc1Aux, 
-	       double &Vx, double &Vy, double &Vz) const;
+  void calcPCA(const Track& trc0, const TrcAuxPar& trc0Aux,
+               const Track& trc1, const TrcAuxPar& trc1Aux,
+               Triplet& v) const;
 
   ///< chi2 (weighted distance)
-  double calcChi2(double Vx, double Vy, double Vz,
-		  const TrackPoint& tPnt0, const TrackAuxPar& trc0Aux, const TrackPointCovI& trcEI0,
-		  const TrackPoint& tPnt1, const TrackAuxPar& trc1Aux, const TrackPointCovI& trcEI1) const;
+  ftype_t calcChi2(const Triplet& pca,
+                   const Track& trc0, const TrcAuxPar& trc0Aux, const TrackCovI& trcEI0,
+                   const Track& trc1, const TrcAuxPar& trc1Aux, const TrackCovI& trcEI1) const;
 
   ///< DCA (abs distance)
-  double calcDCA(const TrackPoint& tPnt0, const TrackAuxPar& trc0Aux, const TrackPoint& tPnt1, const TrackAuxPar& trc1Aux) const;
-  double calcDCA(double Vx, double Vy, double Vz, const TrackPoint& tPnt0, const TrackAuxPar& trc0Aux, const TrackPoint& tPnt1, const TrackAuxPar& trc1Aux) const;
-  
-  TrackPoint calcResid(const TrackPoint& pnt, const TrackAuxPar& alpCS, const TrackPoint& vtx) const
+  ftype_t calcDCA(const Track& tPnt0, const TrcAuxPar& trc0Aux, const Track& tPnt1, const TrcAuxPar& trc1Aux) const;
+  ftype_t calcDCA(const Triplet& pca, const Track& trc0, const TrcAuxPar& trc0Aux, const Track& trc1, const TrcAuxPar& trc1Aux) const;
+
+  Triplet calcResid(const Track& trc, const TrcAuxPar& alpCS, const Triplet& vtx) const
   {
-    double vlX,vlY; // Vertex XY in track local frame
-    alpCS.glo2loc(vtx.x,vtx.y,vlX,vlY);
-    return TrackPoint(pnt.x - vlX, pnt.y - vlY, pnt.z - vtx.z);
-  }
-  
-  TrackPoint calcResid(const AliExternalTrackParam& trc, const TrackAuxPar& alpCS, const TrackPoint& vtx) const
-  {
-    double vlX,vlY; // Vertex XY in track local frame
-    alpCS.glo2loc(vtx.x,vtx.y,vlX,vlY);
-    return TrackPoint(trc.GetX() - vlX, trc.GetY() - vlY, trc.GetZ() - vtx.z);
+    ftype_t vlX, vlY; // Vertex XY in track local frame
+    alpCS.glo2loc(vtx.x, vtx.y, vlX, vlY);
+    return Triplet(trc.getX() - vlX, trc.getY() - vlY, trc.getZ() - vtx.z);
   }
 
-  void chi2Deriv(const TrackPoint& tPnt0, const TrackPointDeriv2& tDer0, const TrackAuxPar& trc0Aux, const TrackPointCovI& trcEI0, const TrackCoefVtx& trCFVT0,
-		 const TrackPoint& tPnt1, const TrackPointDeriv2& tDer1, const TrackAuxPar& trc1Aux, const TrackPointCovI& trcEI1, const TrackCoefVtx& trCFVT1,
-		 Derivatives& deriv) const;
+  void chi2Deriv(const Track& trc0, const TrackDeriv2& tDer0, const TrcAuxPar& trc0Aux, const TrackCovI& trcEI0, const TrackCoefVtx& trCFVT0,
+                 const Track& trc1, const TrackDeriv2& tDer1, const TrcAuxPar& trc1Aux, const TrackCovI& trcEI1, const TrackCoefVtx& trCFVT1,
+                 Derivatives& deriv) const;
 
-  void DCADeriv(const TrackPoint& tPnt0, const TrackPointDeriv2& tDer0, const TrackAuxPar& trc0Aux, 
-		const TrackPoint& tPnt1, const TrackPointDeriv2& tDer1, const TrackAuxPar& trc1Aux, 
-		Derivatives& deriv) const;
+  void DCADeriv(const Track& trc0, const TrackDeriv2& tDer0, const TrcAuxPar& trc0Aux,
+                const Track& trc1, const TrackDeriv2& tDer1, const TrcAuxPar& trc1Aux,
+                Derivatives& deriv) const;
 
-  bool closerToAlternative(float x, float y) const;
-  
+  bool closerToAlternative(ftype_t x, ftype_t y) const;
+
  private:
-  bool   mUseAbsDCA; // ignore track errors (minimize abs DCA to vertex)
-  double mMaxIter; // max iterations
-  double mMaxR2;   // max radius to consider 
-  double mMaxChi2; // max chi2 to accept
-  double mMinRelChi2Change; // stop iterations if relative chi2 change is less than requested
-  double mMinParamChange; // stop iterations when both X params change by less than this value
+  bool mUseAbsDCA;           // ignore track errors (minimize abs DCA to vertex)
+  int mMaxIter;              // max iterations
+  ftype_t mMaxR2;            // max radius to consider
+  ftype_t mMaxChi2;          // max chi2 to accept
+  ftype_t mMinRelChi2Change; // stop iterations if relative chi2 change is less than requested
+  ftype_t mMinParamChange;   // stop iterations when both X params change by less than this value
 
-  double mBz;      // mag field for simple propagation
+  ftype_t mBz; // mag field for simple propagation
 
-  CrossInfo mCrossings; // analystical XY crossings (max 2) of the seeds
-  int mCrossITCur;   // XY crossing being tested
-  int mCrossIDAlt;   // XY crossing alternative to the one being tested. Abandon fit if it converges to it
-  
-  int mNCandidates; // number of consdered candidates
-  AliExternalTrackParam mCandTr0[2], mCandTr1[2]; // Tracks at PCA, max 2 candidates. Note: Errors are at seed XY point
-  TrackPoint mPCA[2]; // PCA for 2 possible cases
-  double mChi2[2]; // Chi2 at PCA candidate
-  TrackPointCovI mTrcEI0[2], mTrcEI1[2]; // errors for each track candidate
-  TrackCoefVtx mTrCFVT0[2], mTrCFVT1[2]; // coefficients of PCA vs track points for each track
-  
-  ClassDefNV(DCAFitter,1);
+  // Working arrays
+  CrossInfo mCrossings; //! analystical XY crossings (max 2) of the seeds
+  int mCrossIDCur;      //! XY crossing being tested
+  int mCrossIDAlt;      //! XY crossing alternative to the one being tested. Abandon fit if it converges to it
+
+  int mNCandidates;                      //! number of consdered candidates
+  Triplet mPCA[2];                       //! PCA for 2 possible cases
+  ftype_t mChi2[2];                      //! Chi2 at PCA candidate
+  TrackCovI mTrcEI0[2], mTrcEI1[2];      //! errors for each track candidate
+  TrackCoefVtx mTrCFVT0[2], mTrCFVT1[2]; //! coefficients of PCA vs track points for each track
+  Track mCandTr0[2], mCandTr1[2];        //! Tracks at PCA, max 2 candidates. Note: Errors are at seed XY point
+
+  ClassDefNV(DCAFitter, 1);
 };
 
-
+#ifndef _ADAPT_FOR_ALIROOT_
+}
+}
 #endif
+
+#endif // _O2_DCA_FITTER_

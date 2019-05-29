@@ -1,3 +1,5 @@
+//#include "DCAFitter.h"
+//#include "TRandom.h"
 
 void testDCAFitter()
 {
@@ -22,11 +24,12 @@ void testDCAFitter()
   tB.GetParameter()[2] = -0.2*tA.GetParameter()[2];
 
   // randomize the tracks positions
+  /*
   tA.GetParameter()[0] += gRandom->Gaus()*TMath::Sqrt(tA.GetSigmaY2()); 
   tA.GetParameter()[1] += gRandom->Gaus()*TMath::Sqrt(tA.GetSigmaZ2()); 
   tB.GetParameter()[0] += gRandom->Gaus()*TMath::Sqrt(tB.GetSigmaY2()); 
   tB.GetParameter()[1] += gRandom->Gaus()*TMath::Sqrt(tB.GetSigmaZ2()); 
-
+  */
   tA.Rotate(-0.3);
   tB.Rotate(0.3);
 
@@ -39,34 +42,39 @@ void testDCAFitter()
 
   DCAFitter df(bz,10.);
 
-  printf("\n\nTesting with abs DCA minimization\n");
+  
   df.setUseAbsDCA(true);
-
   // we may supply track directly to the fitter (they are not modified)
   int nCand = df.process(tA,tB);
+  printf("\n\nTesting with abs DCA minimization: %d candidates found\n",nCand);
   // we can have up to 2 candidates
   for (int ic=0;ic<nCand;ic++) {
-    const DCAFitter::TrackPoint& vtx = df.getPCACandidate(ic);
+    const DCAFitter::Triplet& vtx = df.getPCACandidate(ic);
+    float dx = vtx.x - xyz[0], dy = vtx.y - xyz[1], dz = vtx.z - xyz[2];
+    float dst = TMath::Sqrt(dx * dx + dy * dy + dz * dz);
+
     const AliExternalTrackParam& trc0 = df.getTrack0(ic), &trc1 = df.getTrack1(ic); // track parameters at V0
-    printf("Candidate %d: DCA:%+e Vtx: %+e %+e %+e [Diff to true: %+e %+e %+e]\n", ic, df.getChi2AtPCACandidate(ic),
-	   vtx.x,vtx.y,vtx.z, vtx.x-xyz[0], vtx.y-xyz[1], vtx.z-xyz[2] );
+    printf("Candidate %d: DCA:%+e Vtx: %+e %+e %+e [Diff to true: %+e %+e %+e -> %+e]\n",
+           ic, df.getChi2AtPCACandidate(ic), vtx.x, vtx.y, vtx.z, dx, dy, dz, dst);
+
     printf("Track X-parameters at PCA: %+e %+e\n",trc0.GetX(), trc1.GetX());
     trc0.Print();
     trc1.Print();
   } 
+
   
-  printf("\n\nTesting with weighted DCA minimization\n");
-  df.setUseAbsDCA(false);
-  
+  df.setUseAbsDCA(false);  
   // we can also precalculate some track parameters: useful in a tight loops with the same track tested in many V0s
-  DCAFitter::TrackAuxPar trc0Aux(tA,bz), trc1Aux(tB,bz);
+  DCAFitter::TrcAuxPar trc0Aux(tA,bz), trc1Aux(tB,bz);
   nCand = df.process(tA,tB);
+  printf("\n\nTesting with weighted DCA minimization: %d candidates found\n",nCand);
   for (int ic=0;ic<nCand;ic++) {
-    const DCAFitter::TrackPoint& vtx = df.getPCACandidate(ic);
+    const DCAFitter::Triplet& vtx = df.getPCACandidate(ic);
+    float dx = vtx.x - xyz[0], dy = vtx.y - xyz[1], dz = vtx.z - xyz[2];
+    float dst = TMath::Sqrt(dx * dx + dy * dy + dz * dz);
     const AliExternalTrackParam& trc0 = df.getTrack0(ic), &trc1 = df.getTrack1(ic); // track parameters at V0
-    printf("Candidate %d: DCA:%+e Vtx: %+e %+e %+e [Diff to true: %+e %+e %+e]\n", ic, df.getChi2AtPCACandidate(ic),
-	   vtx.x,vtx.y,vtx.z, vtx.x-xyz[0], vtx.y-xyz[1], vtx.z-xyz[2] );
-    printf("Track X-parameters at PCA: %+e %+e\n",trc0.GetX(), trc1.GetX());
+    printf("Candidate %d: DCA:%+e Vtx: %+e %+e %+e [Diff to true: %+e %+e %+e -> %e]\n",
+           ic, df.getChi2AtPCACandidate(ic), vtx.x, vtx.y, vtx.z, dx, dy, dz, dst);
     trc0.Print();
     trc1.Print();
   }

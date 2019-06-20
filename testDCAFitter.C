@@ -1,37 +1,30 @@
-//#include "DCAFitter.h"
-//#include "TRandom.h"
+#if !(defined(__CLING__)  || defined(__CINT__)) || defined(__ROOTCLING__) || defined(__ROOTCINT__)
+#include "DCAFitter.h"
+#include "TRandom.h"
+#endif
+
 
 void testDCAFitter()
 {
   double bz = 5.0;
 
-  // create V0 
-  AliExternalTrackParam t0;
-  t0.GetParameter()[4] = 1.;
-  t0.GetParameter()[3] = 0.6;
-  t0.GetParameter()[2] = -0.2;
+  // create V0
+  double alp0 = 0.5;
+  double x0 = 10.;
+  double p[5] = {0,0,-0.2,0.6,1.0};
   double c[15]={1e-6,0,1e-6,0,0,1e-6,0,0,0,1e-6,0,0,0,0,1e-5};
-  memcpy(t0.GetCovariance(),c,15*sizeof(double));
-  t0.PropagateTo(10,bz);
+  AliExternalTrackParam tA(x0,alp0, p, c);
+  p[4] = -p[4];
+  p[3] = -0.5*p[3];
+  p[2] = -0.2*p[2];
+  AliExternalTrackParam tB(x0,alp0, p, c);  
 
   double xyz[3];
-  t0.GetXYZ(xyz);
+  tA.GetXYZ(xyz);
   printf("true vertex : %+e %+e %+e\n",xyz[0],xyz[1],xyz[2]);
 
-  AliExternalTrackParam tA(t0), tB(t0);
-  tB.GetParameter()[4] = -tA.GetParameter()[4];
-  tB.GetParameter()[3] = -0.5*tA.GetParameter()[3];
-  tB.GetParameter()[2] = -0.2*tA.GetParameter()[2];
-
-  // randomize the tracks positions
-  /*
-  tA.GetParameter()[0] += gRandom->Gaus()*TMath::Sqrt(tA.GetSigmaY2()); 
-  tA.GetParameter()[1] += gRandom->Gaus()*TMath::Sqrt(tA.GetSigmaZ2()); 
-  tB.GetParameter()[0] += gRandom->Gaus()*TMath::Sqrt(tB.GetSigmaY2()); 
-  tB.GetParameter()[1] += gRandom->Gaus()*TMath::Sqrt(tB.GetSigmaZ2()); 
-  */
-  tA.Rotate(-0.3);
-  tB.Rotate(0.3);
+  tA.Rotate(alp0 - 0.3);
+  tB.Rotate(alp0 + 0.3);
 
   printf("True track params at PCA:\n");
   tA.Print();

@@ -50,6 +50,10 @@ void testDCAFitter()
     printf("Candidate %d: DCA:%+e Vtx: %+e %+e %+e [Diff to true: %+e %+e %+e -> %+e]\n",
            ic, df.getChi2AtPCACandidate(ic), vtx.x, vtx.y, vtx.z, dx, dy, dz, dst);
 
+    float dist2 = DCAFitter::getDistance2(trc0,trc1);
+    float dist2v = DCAFitter::getDistance2(vtx.x, vtx.y, vtx.z, trc0,trc1);
+    printf("Dist^2: track-track: %+.3e | track-v0-track: %+.3e\n",dist2, dist2v);
+    
     printf("Track X-parameters at PCA: %+e %+e\n",trc0.GetX(), trc1.GetX());
     trc0.Print();
     trc1.Print();
@@ -68,6 +72,11 @@ void testDCAFitter()
     const AliExternalTrackParam& trc0 = df.getTrack0(ic), &trc1 = df.getTrack1(ic); // track parameters at V0
     printf("Candidate %d: DCA:%+e Vtx: %+e %+e %+e [Diff to true: %+e %+e %+e -> %e]\n",
            ic, df.getChi2AtPCACandidate(ic), vtx.x, vtx.y, vtx.z, dx, dy, dz, dst);
+    
+    float dist2 = DCAFitter::getDistance2(trc0,trc1);
+    float dist2v = DCAFitter::getDistance2(vtx.x, vtx.y, vtx.z, trc0,trc1);
+    printf("Dist^2: track-track: %+.3e | track-v0-track: %+.3e\n",dist2, dist2v);
+
     trc0.Print();
     trc1.Print();
   }

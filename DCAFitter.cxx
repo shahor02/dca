@@ -556,3 +556,36 @@ bool DCAFitter::closerToAlternative(ftype_t x, ftype_t y) const
   ftype_t dxAlt = x - mCrossings.xDCA[mCrossIDAlt], dyAlt = y - mCrossings.yDCA[mCrossIDAlt];
   return dxCur * dxCur + dyCur * dyCur > dxAlt * dxAlt + dyAlt * dyAlt;
 }
+
+//___________________________________________________________________
+ftype_t DCAFitter::getDistance2(const Track& trc0, const Track& trc1)
+{
+  // calculate un-weighted distance^2 between 2 tracks
+  ftype_t cosalp0 = TMath::Cos(trc0.getAlpha()), sinalp0 = TMath::Sin(trc0.getAlpha());
+  ftype_t cosalp1 = TMath::Cos(trc1.getAlpha()), sinalp1 = TMath::Sin(trc1.getAlpha());
+  ftype_t x0 = trc0.getX()*cosalp0 - trc0.getY()*sinalp0;
+  ftype_t y0 = trc0.getX()*sinalp0 + trc0.getY()*cosalp0;
+  ftype_t x1 = trc1.getX()*cosalp1 - trc1.getY()*sinalp1;
+  ftype_t y1 = trc1.getX()*sinalp1 + trc1.getY()*cosalp1;
+  
+  ftype_t dx = x0 - x1, dy = y0 - y1, dz = trc0.getZ() - trc1.getZ();
+  return dx*dx + dy*dy + dz*dz;
+
+}
+
+//___________________________________________________________________
+ftype_t DCAFitter::getDistance2(ftype_t x, ftype_t y, ftype_t z, const Track& trc0, const Track& trc1)
+{
+  // calculate un-weighted distance^2 between 2 tracks and vertex coordinates
+  ftype_t cosalp0 = TMath::Cos(trc0.getAlpha()), sinalp0 = TMath::Sin(trc0.getAlpha());
+  ftype_t cosalp1 = TMath::Cos(trc1.getAlpha()), sinalp1 = TMath::Sin(trc1.getAlpha());
+  ftype_t x0 = trc0.getX()*cosalp0 - trc0.getY()*sinalp0;
+  ftype_t y0 = trc0.getX()*sinalp0 + trc0.getY()*cosalp0;
+  ftype_t x1 = trc1.getX()*cosalp1 - trc1.getY()*sinalp1;
+  ftype_t y1 = trc1.getX()*sinalp1 + trc1.getY()*cosalp1;
+  
+  ftype_t dx0 = x0 - x, dy0 = y0 - y, dz0 = trc0.getZ() - z;
+  ftype_t dx1 = x1 - x, dy1 = y1 - y, dz1 = trc1.getZ() - z;
+  return dx0*dx0 + dy0*dy0 + dz0*dz0 + dx1*dx1 + dy1*dy1 + dz1*dz1;
+
+}

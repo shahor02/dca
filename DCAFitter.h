@@ -263,6 +263,12 @@ class DCAFitter
   ///< minimize w/o preliminary propagation to XY crossing points
   int processAsIs(const Track& trc0, const Track& trc1);
 
+  ///< calculate squared distance between 2 tracks  
+  static ftype_t getDistance2(const Track& trc0, const Track& trc1); 
+
+  ///< calculate sum of squared distances between 2 tracks and vertex  
+  static ftype_t getDistance2(ftype_t x, ftype_t y, ftype_t z, const Track& trc0, const Track& trc1); 
+  
  protected:
   void calcPCACoefs(const TrcAuxPar& trc0Aux, const TrackCovI& trcEI0,
                     const TrcAuxPar& trc1Aux, const TrackCovI& trcEI1,

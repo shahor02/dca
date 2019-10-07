@@ -109,9 +109,9 @@ class DCAFitter
   //----------------------------------------------------
   //< precalculated track radius, center, alpha sin,cos and their combinations
   struct TrcAuxPar {
-    ftype_t c, s;          // cos ans sin of track alpha
-    ftype_t cc, cs, ss;    // products
-    ftype_t r, xCen, yCen; // helix radius and center in lab
+    dtype_t c, s;          // cos ans sin of track alpha
+    dtype_t cc, cs, ss;    // products
+    dtype_t r, xCen, yCen; // helix radius and center in lab
 
     TrcAuxPar() CONSTRDEF;
     TrcAuxPar(const Track& trc, ftype_t bz) { set(trc, bz); }
@@ -136,6 +136,19 @@ class DCAFitter
     }
 
     void loc2glo(ftype_t vXL, ftype_t vYL, ftype_t& vX, ftype_t& vY) const
+    {
+      // rotate XY in local alpha frame to global frame
+      vX = vXL * c - vYL * s;
+      vY = vXL * s + vYL * c;
+    }
+    void glo2loc(dtype_t vX, dtype_t vY, dtype_t& vXL, dtype_t& vYL) const
+    {
+      // rotate XY in global frame to the frame of track with angle A
+      vXL = vX * c + vY * s;
+      vYL = -vX * s + vY * c;
+    }
+
+    void loc2glo(dtype_t vXL, dtype_t vYL, dtype_t& vX, dtype_t& vY) const
     {
       // rotate XY in local alpha frame to global frame
       vX = vXL * c - vYL * s;
@@ -181,8 +194,8 @@ class DCAFitter
   };
 
   struct Derivatives {
-    ftype_t dChidx0, dChidx1;                   // 1st derivatives of chi2 vs tracks local parameters X
-    ftype_t dChidx0dx0, dChidx1dx1, dChidx0dx1; // 2nd derivatives of chi2 vs tracks local parameters X
+    dtype_t dChidx0, dChidx1;                   // 1st derivatives of chi2 vs tracks local parameters X
+    dtype_t dChidx0dx0, dChidx1dx1, dChidx0dx1; // 2nd derivatives of chi2 vs tracks local parameters X
   };
 
   // <--- Auxiliary structs used by DCA finder
@@ -266,7 +279,7 @@ class DCAFitter
   ///< calculate squared distance between 2 tracks  
   static ftype_t getDistance2(const Track& trc0, const Track& trc1); 
 
-  ///< calculate sum of squared distances between 2 tracks and vertex  
+  ///< calculate half sum of squared distances between 2 tracks and vertex  
   static ftype_t getDistance2(ftype_t x, ftype_t y, ftype_t z, const Track& trc0, const Track& trc1); 
   
  protected:

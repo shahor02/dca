@@ -90,12 +90,12 @@ void DCAFitter::CrossInfo::set(const TrcAuxPar& trc0, const TrcAuxPar& trc1)
 void DCAFitter::TrcAuxPar::setRCen(const Track& tr, ftype_t bz)
 {
   // set track radius and circle coordinates in global frame
-  ftype_t crv = tr.getCurvature(bz);
+  dtype_t crv = tr.getCurvature(bz);
   r = TMath::Abs(crv);
   r = 1. / r;
-  ftype_t sn = tr.getSnp();
-  ftype_t cs = TMath::Sqrt((1. - sn) * (1. + sn));
-  ftype_t x, y;
+  dtype_t sn = tr.getSnp();
+  dtype_t cs = TMath::Sqrt((1. - sn) * (1. + sn));
+  dtype_t x, y;
   if (crv > 0) { // clockwise
     x = tr.getX() - sn * r;
     y = tr.getY() + cs * r;
@@ -167,10 +167,10 @@ bool DCAFitter::processCandidateChi2(const TrcAuxPar& trc0Aux, const TrcAuxPar& 
     chi2Deriv(trc0, tDer0, trc0Aux, trcEI0, trCFVT0, trc1, tDer1, trc1Aux, trcEI1, trCFVT1, deriv);
 
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0,x1} * [ d^2chi2/d{x0,x1}^2 ]^-1
-    ftype_t detDer2 = deriv.dChidx0dx0 * deriv.dChidx1dx1 - deriv.dChidx0dx1 * deriv.dChidx0dx1;
-    ftype_t detDer2I = 1. / detDer2;
-    ftype_t dX0 = -(deriv.dChidx0 * deriv.dChidx1dx1 - deriv.dChidx1 * deriv.dChidx0dx1) * detDer2I;
-    ftype_t dX1 = -(deriv.dChidx1 * deriv.dChidx0dx0 - deriv.dChidx0 * deriv.dChidx0dx1) * detDer2I;
+    dtype_t detDer2 = deriv.dChidx0dx0 * deriv.dChidx1dx1 - deriv.dChidx0dx1 * deriv.dChidx0dx1;
+    dtype_t detDer2I = 1. / detDer2;
+    dtype_t dX0 = -(deriv.dChidx0 * deriv.dChidx1dx1 - deriv.dChidx1 * deriv.dChidx0dx1) * detDer2I;
+    dtype_t dX1 = -(deriv.dChidx1 * deriv.dChidx0dx0 - deriv.dChidx0 * deriv.dChidx0dx1) * detDer2I;
     if (!trc0.propagateParamTo(trc0.getX() + dX0, mBz) || !trc1.propagateParamTo(trc1.getX() + dX1, mBz)) {
       return false;
     }
@@ -233,10 +233,10 @@ bool DCAFitter::processCandidateDCA(const TrcAuxPar& trc0Aux, const TrcAuxPar& t
     DCADeriv(trc0, tDer0, trc0Aux, trc1, tDer1, trc1Aux, deriv);
 
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0,x1} * [ d^2chi2/d{x0,x1}^2 ]^-1
-    ftype_t detDer2 = deriv.dChidx0dx0 * deriv.dChidx1dx1 - deriv.dChidx0dx1 * deriv.dChidx0dx1;
-    ftype_t detDer2I = 1. / detDer2;
-    ftype_t dX0 = -(deriv.dChidx0 * deriv.dChidx1dx1 - deriv.dChidx1 * deriv.dChidx0dx1) * detDer2I;
-    ftype_t dX1 = -(deriv.dChidx1 * deriv.dChidx0dx0 - deriv.dChidx0 * deriv.dChidx0dx1) * detDer2I;
+    dtype_t detDer2 = deriv.dChidx0dx0 * deriv.dChidx1dx1 - deriv.dChidx0dx1 * deriv.dChidx0dx1;
+    dtype_t detDer2I = 1. / detDer2;
+    dtype_t dX0 = -(deriv.dChidx0 * deriv.dChidx1dx1 - deriv.dChidx1 * deriv.dChidx0dx1) * detDer2I;
+    dtype_t dX1 = -(deriv.dChidx1 * deriv.dChidx0dx0 - deriv.dChidx0 * deriv.dChidx0dx1) * detDer2I;
     if (!trc0.propagateParamTo(trc0.getX() + dX0, mBz) || !trc1.propagateParamTo(trc1.getX() + dX1, mBz)) {
       return false;
     }
@@ -539,9 +539,9 @@ ftype_t DCAFitter::calcDCA(const Track& trc0, const TrcAuxPar& trc0Aux, const Tr
 {
   // calculate distance (non-weighted) of closest approach of 2 points in their local frame
   ftype_t chi2 = 0;
-  ftype_t cosDA = trc0Aux.c * trc1Aux.c + trc0Aux.s * trc1Aux.s; // cos(A0-A1)
-  ftype_t sinDA = trc0Aux.s * trc1Aux.c - trc0Aux.c * trc1Aux.s; // sin(A0-A1)
-  ftype_t dx = trc0.getX() - trc1.getX(), dy = trc0.getY() - trc1.getY(), dz = trc0.getZ() - trc1.getZ();
+  dtype_t cosDA = trc0Aux.c * trc1Aux.c + trc0Aux.s * trc1Aux.s; // cos(A0-A1)
+  dtype_t sinDA = trc0Aux.s * trc1Aux.c - trc0Aux.c * trc1Aux.s; // sin(A0-A1)
+  dtype_t dx = trc0.getX() - trc1.getX(), dy = trc0.getY() - trc1.getY(), dz = trc0.getZ() - trc1.getZ();
   chi2 = 0.5 * (dx * dx + dy * dy + dz * dz) + (1. - cosDA) * (trc0.getX() * trc1.getX() + trc0.getY() * trc1.getY()) +
          sinDA * (trc0.getY() * trc1.getX() - trc1.getY() * trc0.getX());
 
@@ -561,14 +561,14 @@ bool DCAFitter::closerToAlternative(ftype_t x, ftype_t y) const
 ftype_t DCAFitter::getDistance2(const Track& trc0, const Track& trc1)
 {
   // calculate un-weighted distance^2 between 2 tracks
-  ftype_t cosalp0 = TMath::Cos(trc0.getAlpha()), sinalp0 = TMath::Sin(trc0.getAlpha());
-  ftype_t cosalp1 = TMath::Cos(trc1.getAlpha()), sinalp1 = TMath::Sin(trc1.getAlpha());
-  ftype_t x0 = trc0.getX()*cosalp0 - trc0.getY()*sinalp0;
-  ftype_t y0 = trc0.getX()*sinalp0 + trc0.getY()*cosalp0;
-  ftype_t x1 = trc1.getX()*cosalp1 - trc1.getY()*sinalp1;
-  ftype_t y1 = trc1.getX()*sinalp1 + trc1.getY()*cosalp1;
+  dtype_t cosalp0 = TMath::Cos(trc0.getAlpha()), sinalp0 = TMath::Sin(trc0.getAlpha());
+  dtype_t cosalp1 = TMath::Cos(trc1.getAlpha()), sinalp1 = TMath::Sin(trc1.getAlpha());
+  dtype_t x0 = trc0.getX()*cosalp0 - trc0.getY()*sinalp0;
+  dtype_t y0 = trc0.getX()*sinalp0 + trc0.getY()*cosalp0;
+  dtype_t x1 = trc1.getX()*cosalp1 - trc1.getY()*sinalp1;
+  dtype_t y1 = trc1.getX()*sinalp1 + trc1.getY()*cosalp1;
   
-  ftype_t dx = x0 - x1, dy = y0 - y1, dz = trc0.getZ() - trc1.getZ();
+  dtype_t dx = x0 - x1, dy = y0 - y1, dz = trc0.getZ() - trc1.getZ();
   return dx*dx + dy*dy + dz*dz;
 
 }
@@ -576,16 +576,16 @@ ftype_t DCAFitter::getDistance2(const Track& trc0, const Track& trc1)
 //___________________________________________________________________
 ftype_t DCAFitter::getDistance2(ftype_t x, ftype_t y, ftype_t z, const Track& trc0, const Track& trc1)
 {
-  // calculate un-weighted distance^2 between 2 tracks and vertex coordinates
-  ftype_t cosalp0 = TMath::Cos(trc0.getAlpha()), sinalp0 = TMath::Sin(trc0.getAlpha());
-  ftype_t cosalp1 = TMath::Cos(trc1.getAlpha()), sinalp1 = TMath::Sin(trc1.getAlpha());
-  ftype_t x0 = trc0.getX()*cosalp0 - trc0.getY()*sinalp0;
-  ftype_t y0 = trc0.getX()*sinalp0 + trc0.getY()*cosalp0;
-  ftype_t x1 = trc1.getX()*cosalp1 - trc1.getY()*sinalp1;
-  ftype_t y1 = trc1.getX()*sinalp1 + trc1.getY()*cosalp1;
+  // calculate un-weighted 1/2 distance^2 between 2 tracks and vertex coordinates
+  dtype_t cosalp0 = TMath::Cos(trc0.getAlpha()), sinalp0 = TMath::Sin(trc0.getAlpha());
+  dtype_t cosalp1 = TMath::Cos(trc1.getAlpha()), sinalp1 = TMath::Sin(trc1.getAlpha());
+  dtype_t x0 = trc0.getX()*cosalp0 - trc0.getY()*sinalp0;
+  dtype_t y0 = trc0.getX()*sinalp0 + trc0.getY()*cosalp0;
+  dtype_t x1 = trc1.getX()*cosalp1 - trc1.getY()*sinalp1;
+  dtype_t y1 = trc1.getX()*sinalp1 + trc1.getY()*cosalp1;
   
-  ftype_t dx0 = x0 - x, dy0 = y0 - y, dz0 = trc0.getZ() - z;
-  ftype_t dx1 = x1 - x, dy1 = y1 - y, dz1 = trc1.getZ() - z;
-  return dx0*dx0 + dy0*dy0 + dz0*dz0 + dx1*dx1 + dy1*dy1 + dz1*dz1;
+  dtype_t dx0 = x0 - x, dy0 = y0 - y, dz0 = trc0.getZ() - z;
+  dtype_t dx1 = x1 - x, dy1 = y1 - y, dz1 = trc1.getZ() - z;
+  return 0.5*(dx0*dx0 + dy0*dy0 + dz0*dz0 + dx1*dx1 + dy1*dy1 + dz1*dz1);
 
 }

@@ -191,6 +191,19 @@ class DCAFitter
     CrossInfo() CONSTRDEF;
     CrossInfo(const TrcAuxPar& trc0, const TrcAuxPar& trc1) { set(trc0, trc1); }
     void set(const TrcAuxPar& trc0, const TrcAuxPar& trc1);
+
+    void notTouchingXY(ftype_t dist, ftype_t xDist, ftype_t yDist, const TrcAuxPar& trcA, ftype_t rBSign) {
+      // fast method to calculate DCA between 2 circles, assuming that they don't touch each outer:
+      // the parametric equation of lines connecting the centers is x = xA + t/dist * xDist, y = yA + t/dist * yDist
+      // with xA,yY being the center of the circle A ( = trcA.xCen, trcA.yCen ), xDist = trcB.xCen = trcA.xCen ...
+      // There are 2 special cases:
+      // (a) small circle is inside the large one: provide rBSign as -trcB.r
+      // (b) circle are side by side: provide rBSign as trcB.r
+      nDCA = 1;
+      auto  t2d = (dist + trcA.r - rBSign)/dist;
+      xDCA[0] = trcA.xCen + 0.5*(xDist * t2d);
+      yDCA[0] = trcA.yCen + 0.5*(yDist * t2d);
+    }
   };
 
   struct Derivatives {

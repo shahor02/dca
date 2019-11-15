@@ -31,20 +31,16 @@ void DCAFitter::CrossInfo::set(const TrcAuxPar& trc0, const TrcAuxPar& trc1)
   const auto& trcB = trc0.r > trc1.r ? trc1 : trc0;
   ftype_t xDist = trcB.xCen - trcA.xCen, yDist = trcB.yCen - trcA.yCen;
   ftype_t dist2 = xDist * xDist + yDist * yDist, dist = TMath::Sqrt(dist2), rsum = trcA.r + trcB.r;
-  if (TMath::Abs(dist) < 1e-12)
+  if (TMath::Abs(dist) < 1e-12) {
     return; // circles are concentric?
-  ftype_t distI = 1. / dist;
+  }
   if (dist > rsum) { // circles don't touch, chose a point in between
     // the parametric equation of lines connecting the centers is
     // x = x0 + t/dist * (x1-x0), y = y0 + t/dist * (y1-y0)
-    nDCA = 1;
-    xDCA[0] = 0.5 * (trcA.xCen + xDist * distI * (dist + trcA.r - trcB.r));
-    yDCA[0] = 0.5 * (trcA.yCen + yDist * distI * (dist + trcA.r - trcB.r));
+    notTouchingXY(dist, xDist, yDist, trcA, trcB.r);
   } else if (dist + trcB.r < trcA.r) { // the small circle is nestled into large one w/o touching
     // select the point of closest approach of 2 circles
-    nDCA = 1;
-    xDCA[0] = 0.5 * (trcB.xCen + trcA.xCen + xDist * distI * rsum);
-    yDCA[0] = 0.5 * (trcB.yCen + trcA.yCen + yDist * distI * rsum);
+    notTouchingXY(dist, xDist, yDist, trcA, -trcB.r);
   } else { // 2 intersection points
     // to simplify calculations, we move to new frame x->x+Xc0, y->y+Yc0, so that
     // the 1st one is centered in origin
@@ -61,9 +57,7 @@ void DCAFitter::CrossInfo::set(const TrcAuxPar& trc0, const TrcAuxPar& trc1)
 	xDCA[1] += trcA.xCen;
 	nDCA = 2;
       } else { // due to the finite precision the det<=0, i.e. the circles are barely touching, fall back to this special case
-	nDCA = 1;
-	xDCA[0] = 0.5 * (trcA.xCen + xDist * distI * (dist + trcA.r - trcB.r));
-	yDCA[0] = 0.5 * (trcA.yCen + yDist * distI * (dist + trcA.r - trcB.r));
+	notTouchingXY(dist, xDist, yDist, trcA, trcB.r);
       }
     } else {
       ftype_t a = (trcA.r * trcA.r - trcB.r * trcB.r + dist2) / (2. * xDist), b = -yDist / xDist, ab = a * b, bb = b * b;
@@ -78,9 +72,7 @@ void DCAFitter::CrossInfo::set(const TrcAuxPar& trc0, const TrcAuxPar& trc1)
 	yDCA[1] += trcA.yCen;
 	nDCA = 2;
       } else { // due to the finite precision the det<=0, i.e. the circles are barely touching, fall back to this special case
-	nDCA = 1;
-	xDCA[0] = 0.5 * (trcA.xCen + xDist * distI * (dist + trcA.r - trcB.r));
-	yDCA[0] = 0.5 * (trcA.yCen + yDist * distI * (dist + trcA.r - trcB.r));
+	notTouchingXY(dist, xDist, yDist, trcA, trcB.r);
       }
     }
   }

@@ -81,21 +81,11 @@ void DCAFitter::CrossInfo::set(const TrcAuxPar& trc0, const TrcAuxPar& trc1)
 //_____________________________________________________________________________________
 void DCAFitter::TrcAuxPar::setRCen(const Track& tr, ftype_t bz)
 {
-  // set track radius and circle coordinates in global frame
-  dtype_t crv = tr.getCurvature(bz);
-  r = TMath::Abs(crv);
-  r = 1. / r;
-  dtype_t sn = tr.getSnp();
-  dtype_t cs = TMath::Sqrt((1. - sn) * (1. + sn));
-  dtype_t x, y;
-  if (crv > 0) { // clockwise
-    x = tr.getX() - sn * r;
-    y = tr.getY() + cs * r;
-  } else {
-    x = tr.getX() + sn * r;
-    y = tr.getY() - cs * r;
-  }
-  loc2glo(x, y, xCen, yCen);
+  // set track radius and circle coordinates in global frame, no check for bz==0!
+  r = 1. / tr.getCurvature(bz);
+  ftype_t sn = tr.getSnp(), cs = TMath::Sqrt((1. - sn) * (1. + sn));
+  loc2glo(tr.getX() - sn * r, tr.getY() + cs * r, xCen, yCen);
+  r = TMath::Abs(r);
 }
 
 //___________________________________________________________________
